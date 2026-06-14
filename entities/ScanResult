@@ -1,0 +1,52 @@
+{
+  "name": "ScanResult",
+  "type": "object",
+  "properties": {
+    "scan_type": {
+      "type": "string",
+      "title": "Scan Type",
+      "enum": [
+        "full_scan",
+        "quick_scan",
+        "port_scan",
+        "vulnerability_scan",
+        "ai_analysis"
+      ]
+    },
+    "target": {
+      "type": "string",
+      "title": "Target (IP/Range)"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "running",
+        "completed",
+        "failed"
+      ],
+      "default": "running"
+    },
+    "findings_count": {
+      "type": "number",
+      "title": "Findings Count"
+    },
+    "summary": {
+      "type": "string",
+      "title": "Summary"
+    },
+    "ai_recommendation": {
+      "type": "string",
+      "title": "AI Recommendation"
+    },
+    "risk_score": {
+      "type": "number",
+      "title": "Overall Risk Score"
+    }
+  },
+  "required": [
+    "scan_type",
+    "target",
+    "status"
+  ]
+}

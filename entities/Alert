@@ -1,0 +1,67 @@
+{
+  "name": "Alert",
+  "type": "object",
+  "properties": {
+    "attack_type": {
+      "type": "string",
+      "title": "Attack Type",
+      "enum": [
+        "brute_force",
+        "port_scan",
+        "arp_spoofing",
+        "ddos",
+        "malware",
+        "anomaly",
+        "other"
+      ]
+    },
+    "source_ip": {
+      "type": "string",
+      "title": "Source IP"
+    },
+    "target_ip": {
+      "type": "string",
+      "title": "Target IP"
+    },
+    "severity": {
+      "type": "string",
+      "title": "Severity",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "active",
+        "investigating",
+        "resolved",
+        "false_positive"
+      ],
+      "default": "active"
+    },
+    "description": {
+      "type": "string",
+      "title": "Description"
+    },
+    "packets_involved": {
+      "type": "number",
+      "title": "Packets Involved"
+    },
+    "risk_score": {
+      "type": "number",
+      "title": "Risk Score (0-100)"
+    }
+  },
+  "required": [
+    "attack_type",
+    "source_ip",
+    "severity",
+    "status",
+    "description"
+  ]
+}

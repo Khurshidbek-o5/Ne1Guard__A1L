@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  name         String?
+  password     String
+  role         String   @default("guest")
+  roleApproved Boolean  @default(false)
+  position     String?
+  avatarUrl    String?
+  created_at   DateTime @default(now())
+}
+
+model Device {
+  id           Int      @id @default(autoincrement())
+  ip_address   String   @unique
+  mac_address  String?
+  hostname     String?
+  device_type  String   @default("unknown")
+  status       String   @default("online")
+  risk_level   String   @default("safe")
+  tonerLevel   Int?     @default(100)
+  pageCount    Int?     @default(0)
+  modelName    String?
+  last_seen    DateTime?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  packets      Packet[]
+  printJobs    PrintJob[]
+}
+
+model PrintJob {
+  id        Int      @id @default(autoincrement())
+  fileName  String
+  userName  String
+  status    String   @default("PENDING") // PENDING, PRINTING, COMPLETED, FAILED
+  timestamp DateTime @default(now())
+  printerId Int
+  printer   Device   @relation(fields: [printerId], references: [id])
+}
+
+model Packet {
+  id             Int      @id @default(autoincrement())
+  timestamp      DateTime @default(now())
+  source_ip      String
+  destination_ip String
+  port           Int?
+  protocol       String
+  size           Int
+  status         String   @default("normal")
+  device_id      Int?
+  device         Device?  @relation(fields: [device_id], references: [id])
+}
+
+model Traffic {
+  id         Int      @id @default(autoincrement())
+  timestamp  DateTime @default(now())
+  bytes_in   BigInt
+  bytes_out  BigInt
+  protocol   String
+}
+
+model Alert {
+  id          Int      @id @default(autoincrement())
+  timestamp   DateTime @default(now())
+  type        String
+  severity    String
+  description String
+  source_ip   String?
+  target_ip   String?
+  status      String   @default("active")
+  risk_score  Int?
+}
+
+model SystemSetting {
+  id         Int      @id @default(autoincrement())
+  key        String   @unique
+  value      String   @db.Text
+  updated_at DateTime @updatedAt
+}

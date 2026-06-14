@@ -1,0 +1,72 @@
+{
+  "name": "Device",
+  "type": "object",
+  "properties": {
+    "ip_address": {
+      "type": "string",
+      "title": "IP Address"
+    },
+    "mac_address": {
+      "type": "string",
+      "title": "MAC Address"
+    },
+    "hostname": {
+      "type": "string",
+      "title": "Hostname"
+    },
+    "device_type": {
+      "type": "string",
+      "title": "Device Type",
+      "enum": [
+        "router",
+        "switch",
+        "server",
+        "workstation",
+        "mobile",
+        "iot",
+        "printer",
+        "unknown"
+      ]
+    },
+    "os": {
+      "type": "string",
+      "title": "Operating System"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "online",
+        "offline",
+        "suspicious"
+      ],
+      "default": "online"
+    },
+    "open_ports": {
+      "type": "string",
+      "title": "Open Ports"
+    },
+    "last_seen": {
+      "type": "string",
+      "title": "Last Seen"
+    },
+    "risk_level": {
+      "type": "string",
+      "title": "Risk Level",
+      "enum": [
+        "safe",
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "safe"
+    }
+  },
+  "required": [
+    "ip_address",
+    "mac_address",
+    "hostname",
+    "device_type",
+    "status"
+  ]
+}

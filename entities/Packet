@@ -1,0 +1,60 @@
+{
+  "name": "Packet",
+  "type": "object",
+  "properties": {
+    "source_ip": {
+      "type": "string",
+      "title": "Source IP"
+    },
+    "destination_ip": {
+      "type": "string",
+      "title": "Destination IP"
+    },
+    "port": {
+      "type": "number",
+      "title": "Port"
+    },
+    "protocol": {
+      "type": "string",
+      "title": "Protocol",
+      "enum": [
+        "TCP",
+        "UDP",
+        "ICMP",
+        "ARP",
+        "HTTP",
+        "HTTPS",
+        "DNS",
+        "SSH",
+        "FTP",
+        "OTHER"
+      ]
+    },
+    "size": {
+      "type": "number",
+      "title": "Size (bytes)"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "normal",
+        "suspicious",
+        "attack"
+      ],
+      "default": "normal"
+    },
+    "flags": {
+      "type": "string",
+      "title": "Flags"
+    }
+  },
+  "required": [
+    "source_ip",
+    "destination_ip",
+    "port",
+    "protocol",
+    "size",
+    "status"
+  ]
+}
