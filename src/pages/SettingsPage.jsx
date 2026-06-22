@@ -484,6 +484,27 @@ function UsersPanel() {
 
 function DatabasePanel({ dbStats, onRefresh, dbLoading }) {
   const { t } = useTranslation();
+
+  const handleClearDb = async () => {
+    if (!window.confirm("Haqiqatan ham barcha paketlar, ogohlantirishlar va boshqa jurnallarni o'chirib, ma'lumotlar bazasini tozalamoqchimisiz? Bu amalni ortga qaytarib bo'lmaydi!")) {
+      return;
+    }
+    try {
+      const res = await apiClient.clearDatabase();
+      toast({ 
+        title: `✅ Muvaffaqiyatli`, 
+        description: `Baza tozalandi: ${res.stats?.packets || 0} paketlar, ${res.stats?.alerts || 0} ogohlantirishlar o'chirildi.` 
+      });
+      onRefresh(); // Refresh counts
+    } catch (err) {
+      toast({ 
+        title: "❌ Xatolik", 
+        description: err.message || "Ma'lumotlar bazasini tozalashda xatolik yuz berdi", 
+        variant: "destructive" 
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* DB Status */}
@@ -554,7 +575,7 @@ function DatabasePanel({ dbStats, onRefresh, dbLoading }) {
           <Button variant="outline" size="sm" className="gap-2" onClick={() => toast({ title: "Tez kunda", description: "Export funksiyasi ishlab chiqilmoqda" })}>
             <Download className="h-4 w-4" /> Ma'lumotlarni export
           </Button>
-          <Button variant="outline" size="sm" className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => toast({ title: "Xavfli amal", description: "Bu funksiya production'da o'chirilgan", variant: "destructive" })}>
+          <Button variant="outline" size="sm" className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={handleClearDb} disabled={dbLoading}>
             <Trash2 className="h-4 w-4" /> Eski ma'lumotlarni tozalash
           </Button>
         </div>
@@ -637,19 +658,17 @@ export default function SettingsPage() {
   const loadDbStats = async () => {
     setDbLoading(true);
     try {
-      const [devices, packets, alerts, traffic, health] = await Promise.all([
-        apiClient.getDevices().catch(() => []),
-        apiClient.getPackets().catch(() => []),
-        apiClient.getAlerts().catch(() => []),
-        apiClient.getTraffic().catch(() => []),
+      const [stats, health] = await Promise.all([
+        apiClient.getStats().catch(() => null),
         fetch("/api/health").then(r => r.json()).catch(() => ({ db: "error" })),
       ]);
+      const overview = stats?.overview || {};
       setDbStats({
         status: health.db === "connected" ? `✅ ${t('common.connected')}` : `❌ ${t('common.disconnected')}`,
-        devices: Array.isArray(devices) ? devices.length : 0,
-        packets: Array.isArray(packets) ? packets.length : 0,
-        alerts: Array.isArray(alerts) ? alerts.length : 0,
-        traffic: Array.isArray(traffic) ? traffic.length : 0,
+        devices: overview.total_devices ?? 0,
+        packets: overview.total_packets ?? 0,
+        alerts: overview.total_alerts ?? 0,
+        traffic: overview.total_traffic ?? 0,
       });
     } catch {
       setDbStats(s => ({ ...s, status: `❌ ${t('common.error')}` }));
@@ -751,11 +770,11 @@ export default function SettingsPage() {
         <div className="flex-1 min-w-0">
           {activeTab === "profile"       && <ProfilePanel       onSave={handleSave} loading={loading} />}
 
-          {/* Render system management panels only if user is developer */}
-          {isDeveloper && activeTab === "general"       && <GeneralPanel       {...sharedProps} />}
+          {/* Render system management panels only if user is developer or support */}
+          {(isDeveloper || isSupport) && activeTab === "general"       && <GeneralPanel       {...sharedProps} />}
           {isDeveloper && activeTab === "security"      && <SecurityPanel      {...sharedProps} />}
           {isDeveloper && activeTab === "users"         && <UsersPanel         />}
-          {isDeveloper && activeTab === "notifications" && <NotificationsPanel {...sharedProps} />}
+          {(isDeveloper || isSupport) && activeTab === "notifications" && <NotificationsPanel {...sharedProps} />}
           {isDeveloper && activeTab === "database"      && <DatabasePanel dbStats={dbStats} onRefresh={loadDbStats} dbLoading={dbLoading} />}
         </div>
       </div>

@@ -113,6 +113,12 @@ export const apiClient = {
     headers: apiClient.getHeaders()
   }).then(handleResponse),
 
+  // DB Settings
+  clearDatabase: () => fetch(`${BASE_URL}/settings/db/clear`, {
+    method: 'POST',
+    headers: apiClient.getHeaders()
+  }).then(handleResponse),
+
   // Print
   getPrinters: () => fetch(`${BASE_URL}/print/printers`, {
     headers: apiClient.getHeaders()

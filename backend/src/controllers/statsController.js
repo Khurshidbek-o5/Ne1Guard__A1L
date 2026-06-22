@@ -11,6 +11,7 @@ exports.getStats = async (req, res) => {
       totalPackets, attackPackets, suspiciousPackets,
       totalAlerts, activeAlerts, criticalAlerts,
       totalDevices, onlineDevices,
+      totalTraffic,
       recentPackets,
       alertsByType,
       threatScore,
@@ -23,6 +24,7 @@ exports.getStats = async (req, res) => {
       prisma.alert.count({ where: { severity: 'critical', status: 'active' } }),
       prisma.device.count(),
       prisma.device.count({ where: { status: 'online' } }),
+      prisma.traffic.count(),
       // Last 24h packets per hour
       prisma.packet.findMany({
         where: { timestamp: { gte: oneDay } },
@@ -87,6 +89,7 @@ exports.getStats = async (req, res) => {
         critical_alerts:   criticalAlerts,
         total_devices:     totalDevices,
         online_devices:    onlineDevices,
+        total_traffic:     totalTraffic,
       },
       tracker_stats: getTrackerStats(),
       hourly_traffic: hourlyData,

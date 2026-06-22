@@ -2,6 +2,7 @@ const { WebSocketServer } = require('ws');
 
 let wss;
 const clients = new Set();
+let pingInterval;
 
 /**
  * Initialize the WebSocket server
@@ -12,7 +13,13 @@ function initWebSocket(server) {
 
     wss.on('connection', (ws) => {
         clients.add(ws);
+        ws.isAlive = true;
+        
         console.log(`📡 New WebSocket connection. Total clients: ${clients.size}`);
+
+        ws.on('pong', () => {
+            ws.isAlive = true;
+        });
 
         ws.on('close', () => {
             clients.delete(ws);
@@ -24,12 +31,29 @@ function initWebSocket(server) {
             clients.delete(ws);
         });
 
-        // Send initial heartbeat
+        // Send initial connection message
         ws.send(JSON.stringify({ 
             type: 'CONNECTED', 
             message: 'WebSocket connected to NetGuard Secure Stream',
             timestamp: new Date().toISOString()
         }));
+    });
+
+    // Start heartbeat interval to detect and clean up dead connections (every 30 seconds)
+    pingInterval = setInterval(() => {
+        wss.clients.forEach((ws) => {
+            if (ws.isAlive === false) {
+                console.log('💀 Terminating dead WebSocket client');
+                clients.delete(ws);
+                return ws.terminate();
+            }
+            ws.isAlive = false;
+            ws.ping();
+        });
+    }, 30000);
+
+    wss.on('close', () => {
+        if (pingInterval) clearInterval(pingInterval);
     });
 }
 

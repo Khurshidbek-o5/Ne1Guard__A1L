@@ -1,15 +1,37 @@
 const jwt = require('jsonwebtoken');
+const prisma = require('../services/db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_netguard_key_2026';
 
-const protect = (req, res, next) => {
+const protect = async (req, res, next) => {
   let token;
 
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     try {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, JWT_SECRET);
-      req.user = decoded;
+      
+      // Fetch user from DB to verify approval and role status
+      const dbUser = await prisma.user.findUnique({
+        where: { id: decoded.id }
+      });
+      
+      if (!dbUser) {
+        return res.status(401).json({ error: 'Foydalanuvchi tizimda mavjud emas' });
+      }
+      
+      if (!dbUser.roleApproved) {
+        return res.status(403).json({ error: 'Sizning hisobingiz administrator tomonidan tasdiqlanishi kutilmoqda' });
+      }
+
+      // Update req.user with the latest data from database
+      req.user = {
+        id: dbUser.id,
+        email: dbUser.email,
+        role: dbUser.role,
+        name: dbUser.name
+      };
+      
       next();
     } catch (error) {
       console.error('Auth token validation failure:', error.message);

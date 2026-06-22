@@ -1,4 +1,5 @@
 const prisma = require('./db');
+const { processAlertNotification } = require('./notificationService');
 
 /* ═══════════════════════════════════════════════════
    NetGuard AI — Advanced Detection Engine
@@ -13,7 +14,7 @@ const bruteForceTracker = new Map(); // ip → { count, firstSeen }
 const arpTracker        = new Map(); // ip → mac
 const ddosTracker       = new Map(); // ip → { count, firstSeen }
 const recentAlerts      = new Set(); // deduplication key set
-let lastCleanupTime     = Date.now();
+const trackerCleanupTimes = new Map(); // tracker Map ref -> lastCleanupTime
 
 const WINDOW_MS     = 60 * 1000;   // 1 minute window
 const PORT_SCAN_THR = 8;           // ports per minute → port scan
@@ -33,6 +34,10 @@ async function createAlert(data, dedupKey) {
     if (global.wsBroadcast) {
       global.wsBroadcast({ type: 'NEW_ALERT', payload: alert });
     }
+    
+    // Trigger Telegram/Email notifications in background
+    processAlertNotification(alert).catch(err => console.error('[Detection] Notification trigger failed:', err));
+    
     return alert;
   } catch (err) {
     console.error('[Detection] Failed to create alert:', err.message);
@@ -43,14 +48,14 @@ async function createAlert(data, dedupKey) {
 /* ── Helper: cleanup expired entries ── */
 function cleanOldEntries(tracker, windowMs) {
   const now = Date.now();
-  // Throttle cleanup to once every 10 seconds per service start or per call if needed
-  // But here we'll throttle it globally for the service to once per 5 seconds
-  if (now - lastCleanupTime < 5000) return;
+  const lastCleanup = trackerCleanupTimes.get(tracker) || 0;
+  // Throttle cleanup per tracker to once every 5 seconds
+  if (now - lastCleanup < 5000) return;
   
   for (const [key, val] of tracker.entries()) {
     if (now - val.firstSeen > windowMs) tracker.delete(key);
   }
-  lastCleanupTime = now;
+  trackerCleanupTimes.set(tracker, now);
 }
 
 /* ═══════════════════════════════════════════

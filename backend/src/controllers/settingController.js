@@ -34,3 +34,38 @@ exports.updateSettings = async (req, res) => {
     res.status(500).json({ error: 'Failed to update settings' });
   }
 };
+
+exports.clearDatabase = async (req, res) => {
+  try {
+    // Delete historical data in correct order due to foreign key relationships if any
+    // Packet has device_id referencing Device, printJob has printerId referencing Device.
+    // We clear packets, print jobs, traffic, and alerts.
+    
+    const [packets, jobs, traffic, alerts] = await prisma.$transaction([
+      prisma.packet.deleteMany(),
+      prisma.printJob.deleteMany(),
+      prisma.traffic.deleteMany(),
+      prisma.alert.deleteMany(),
+    ]);
+
+    console.log(`🧹 Database cleared: ${packets.count} packets, ${jobs.count} print jobs, ${traffic.count} traffic logs, ${alerts.count} alerts deleted.`);
+
+    // Broadcast update via WebSocket to tell the UI to clear its local display if needed
+    if (global.wsBroadcast) {
+      global.wsBroadcast({ type: 'DATABASE_CLEARED', timestamp: new Date() });
+    }
+
+    res.json({ 
+      message: 'Ma\'lumotlar bazasi muvaffaqiyatli tozalandi', 
+      stats: {
+        packets: packets.count,
+        printJobs: jobs.count,
+        traffic: traffic.count,
+        alerts: alerts.count
+      }
+    });
+  } catch (err) {
+    console.error('Error clearing database:', err);
+    res.status(500).json({ error: 'Ma\'lumotlar bazasini tozalab bo\'lmadi: ' + err.message });
+  }
+};
