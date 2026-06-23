@@ -81,3 +81,95 @@ exports.retryJob = async (req, res) => {
     res.status(500).json({ error: 'Failed to retry job' });
   }
 };
+
+exports.createJob = async (req, res) => {
+  try {
+    const { fileName, userName, printerId } = req.body;
+    if (!fileName || !userName || !printerId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    const printer = await prisma.device.findUnique({
+      where: { id: parseInt(printerId) }
+    });
+    if (!printer || printer.device_type !== 'printer') {
+      return res.status(404).json({ error: 'Printer not found' });
+    }
+    if (printer.status !== 'online') {
+      return res.status(400).json({ error: 'Printer is offline' });
+    }
+    const job = await prisma.printJob.create({
+      data: {
+        fileName,
+        userName,
+        printerId: parseInt(printerId),
+        status: 'PENDING'
+      },
+      include: { printer: true }
+    });
+    res.status(201).json(job);
+  } catch (error) {
+    console.error('Error creating print job:', error);
+    res.status(500).json({ error: 'Failed to create print job' });
+  }
+};
+
+exports.refillToner = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const printer = await prisma.device.findUnique({
+      where: { id: parseInt(id) }
+    });
+    if (!printer || printer.device_type !== 'printer') {
+      return res.status(404).json({ error: 'Printer not found' });
+    }
+    const updated = await prisma.device.update({
+      where: { id: parseInt(id) },
+      data: { tonerLevel: 100 }
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Error refilling toner:', error);
+    res.status(500).json({ error: 'Failed to refill toner' });
+  }
+};
+
+exports.toggleStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const printer = await prisma.device.findUnique({
+      where: { id: parseInt(id) }
+    });
+    if (!printer || printer.device_type !== 'printer') {
+      return res.status(404).json({ error: 'Printer not found' });
+    }
+    const newStatus = printer.status === 'online' ? 'offline' : 'online';
+    const updated = await prisma.device.update({
+      where: { id: parseInt(id) },
+      data: { status: newStatus }
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Error toggling status:', error);
+    res.status(500).json({ error: 'Failed to toggle status' });
+  }
+};
+
+exports.fixPrinter = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const printer = await prisma.device.findUnique({
+      where: { id: parseInt(id) }
+    });
+    if (!printer || printer.device_type !== 'printer') {
+      return res.status(404).json({ error: 'Printer not found' });
+    }
+    const updated = await prisma.device.update({
+      where: { id: parseInt(id) },
+      data: { risk_level: 'safe', status: 'online' }
+    });
+    res.json(updated);
+  } catch (error) {
+    console.error('Error fixing printer:', error);
+    res.status(500).json({ error: 'Failed to fix printer' });
+  }
+};

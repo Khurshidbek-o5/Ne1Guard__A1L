@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Printer, ScrollText, Search, 
   Trash2, RefreshCcw, Wifi,
-  FileText, Settings, Activity
+  FileText, Settings, Activity,
+  Plus, Power, Wrench, BatteryCharging
 } from 'lucide-react';
 import { apiClient } from '@/api/apiClient';
 import { 
@@ -15,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
+import { useAuth } from "@/lib/AuthContext";
 
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,6 +31,7 @@ export default function PrinterPanel() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   // Fetch Printers & Queue
   const { data: printers = [], isInitialLoading: printersLoading } = useQuery({
@@ -65,6 +67,44 @@ export default function PrinterPanel() {
     onError: (err) => toast.error(err.message)
   });
 
+  const createJobMutation = useMutation({
+    mutationFn: apiClient.createPrintJob,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['printQueue']);
+      queryClient.invalidateQueries(['printers']);
+      toast.success("Chop etish vazifasi muvaffaqiyatli qo'shildi");
+      setIsCreateOpen(false);
+    },
+    onError: (err) => toast.error(err.message)
+  });
+
+  const refillTonerMutation = useMutation({
+    mutationFn: apiClient.refillPrinterToner,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['printers']);
+      toast.success("Printer toneri to'ldirildi (100%)");
+    },
+    onError: (err) => toast.error(err.message)
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: apiClient.togglePrinterStatus,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(['printers']);
+      toast.success(`Printer statusi o'zgartirildi: ${data.status.toUpperCase()}`);
+    },
+    onError: (err) => toast.error(err.message)
+  });
+
+  const fixPrinterMutation = useMutation({
+    mutationFn: apiClient.fixPrinter,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['printers']);
+      toast.success("Printerning texnik muammolari bartaraf etildi!");
+    },
+    onError: (err) => toast.error(err.message)
+  });
+
   // Filtering
   const filteredQueue = useMemo(() => {
     return queue.filter(job => {
@@ -92,6 +132,13 @@ export default function PrinterPanel() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button 
+            onClick={() => setIsCreateOpen(true)}
+            className="h-9 gap-1.5 text-xs font-semibold px-4 bg-primary text-primary-foreground hover:bg-primary/95 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+          >
+            <Plus className="h-4 w-4" />
+            Yangi chop etish
+          </Button>
           <div className="flex flex-col items-end px-3 py-1.5 border border-border bg-card/40 rounded-lg">
              <span className="text-[10px] text-muted-foreground uppercase font-mono">Tizim holati</span>
              <div className="flex items-center gap-1.5 font-mono text-xs text-primary">
@@ -109,7 +156,13 @@ export default function PrinterPanel() {
           [1,2,3].map(i => <div key={i} className="h-48 rounded-xl border border-border/40 bg-card/20 animate-pulse" />)
         ) : (
           printers.map((printer) => (
-            <PrinterCard key={printer.id} printer={printer} />
+            <PrinterCard 
+              key={printer.id} 
+              printer={printer} 
+              onRefill={(id) => refillTonerMutation.mutate(id)}
+              onToggle={(id) => toggleStatusMutation.mutate(id)}
+              onFix={(id) => fixPrinterMutation.mutate(id)}
+            />
           ))
         )}
       </div>
@@ -230,38 +283,48 @@ export default function PrinterPanel() {
           </Table>
         </div>
       </div>
+      
+      <CreateJobDialog 
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        printers={printers}
+        onSubmit={(data) => createJobMutation.mutate(data)}
+      />
     </div>
   );
 }
 
-function PrinterCard({ printer }) {
+function PrinterCard({ printer, onRefill, onToggle, onFix }) {
   const isPrinting = printer.printJobs?.some(j => j.status === 'PRINTING');
   const isLowToner = printer.tonerLevel < 15;
   const isDown = printer.status !== 'online';
+  const hasWarning = printer.risk_level === 'warning';
 
   return (
     <motion.div 
       layout
-      initial={false} // Prevent re-animation on updates
+      initial={false}
       animate={{ opacity: 1, scale: 1 }}
       className={cn(
-        "bg-card border rounded-xl overflow-hidden card-hover relative group transition-all duration-300",
-        isDown ? "opacity-70 grayscale" : ""
+        "bg-card border rounded-xl overflow-hidden card-hover relative group transition-all duration-300 shadow-sm",
+        isDown ? "opacity-75" : ""
       )}
     >
       {/* Top Banner */}
       <div className={cn(
-        "h-1.5 w-full",
-        isDown ? "bg-destructive/50" : isPrinting ? "bg-primary animate-pulse" : "bg-primary/20"
+        "h-1.5 w-full transition-all duration-300",
+        isDown ? "bg-muted-foreground/40" : hasWarning ? "bg-amber-500" : isPrinting ? "bg-primary animate-pulse" : "bg-emerald-500"
       )} />
 
-      <div className="p-5 space-y-6">
+      <div className="p-5 space-y-5">
         {/* Identity Row */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
              <div className={cn(
-               "h-10 w-10 rounded-lg flex items-center justify-center transition-colors",
-               isDown ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary border border-primary/20 glow-green"
+               "h-10 w-10 rounded-lg flex items-center justify-center transition-colors border",
+               isDown ? "bg-muted text-muted-foreground border-border" : 
+               hasWarning ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
+               "bg-primary/10 text-primary border-primary/20 glow-green"
              )}>
                 <Printer className="h-5 w-5" />
              </div>
@@ -272,10 +335,13 @@ function PrinterCard({ printer }) {
           </div>
           <div className={cn(
             "text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border flex items-center gap-1",
-            isDown ? "status-offline" : isPrinting ? "bg-primary/20 text-primary border-primary/30" : "status-online"
+            isDown ? "status-offline" : 
+            hasWarning ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
+            isPrinting ? "bg-primary/10 text-primary border-primary/20" : 
+            "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
           )}>
-            <span className={cn("h-1.5 w-1.5 rounded-full", isDown ? "bg-muted-foreground" : "bg-primary animate-pulse")} />
-            {isDown ? "OFFLINE" : isPrinting ? "PRINTING" : "READY"}
+            <span className={cn("h-1.5 w-1.5 rounded-full", isDown ? "bg-muted-foreground" : hasWarning ? "bg-amber-500 animate-pulse" : "bg-emerald-500")} />
+            {isDown ? "OFFLINE" : hasWarning ? "WARNING" : isPrinting ? "PRINTING" : "READY"}
           </div>
         </div>
 
@@ -286,7 +352,7 @@ function PrinterCard({ printer }) {
                  <Activity className="h-3 w-3" />
                  Toner
               </div>
-              <span className={cn(isLowToner ? "text-destructive font-bold animate-pulse" : "text-foreground")}>
+              <span className={cn(isLowToner && !isDown ? "text-destructive font-bold animate-pulse" : "text-foreground")}>
                 {printer.tonerLevel}%
               </span>
            </div>
@@ -313,17 +379,161 @@ function PrinterCard({ printer }) {
               </div>
            </div>
         </div>
-      </div>
 
-      {/* Settings overlay element on hover if online */}
-      {!isDown && (
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-           <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md bg-background/50 backdrop-blur-sm border border-border/40">
-             <Settings className="h-3.5 w-3.5" />
-           </Button>
+        {/* Controls Row */}
+        <div className="pt-4 border-t border-border/40 flex items-center justify-between gap-2">
+          {/* Status Toggle Button */}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => onToggle(printer.id)} 
+            className="h-7 px-2 text-[10px] uppercase font-mono tracking-wider hover:bg-secondary/60 flex items-center gap-1"
+          >
+            <Power className={cn("h-3.5 w-3.5", isDown ? "text-muted-foreground" : "text-emerald-500")} />
+            {isDown ? "Yoqish" : "O'chirish"}
+          </Button>
+
+          <div className="flex items-center gap-1.5">
+            {/* Toner Refill Button */}
+            {!isDown && printer.tonerLevel < 100 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => onRefill(printer.id)} 
+                className="h-7 px-2.5 text-[10px] uppercase font-mono tracking-wider text-primary border-primary/20 hover:bg-primary/10 hover:text-primary flex items-center gap-1"
+              >
+                <BatteryCharging className="h-3.5 w-3.5" />
+                Refill
+              </Button>
+            )}
+
+            {/* Warning fix button */}
+            {!isDown && hasWarning && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => onFix(printer.id)} 
+                className="h-7 px-2.5 text-[10px] uppercase font-mono tracking-wider text-amber-500 border-amber-500/20 bg-amber-500/10 hover:bg-amber-500/20 hover:text-amber-400 flex items-center gap-1 animate-pulse"
+              >
+                <Wrench className="h-3.5 w-3.5" />
+                Tuzatish
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function CreateJobDialog({ isOpen, onClose, printers, onSubmit }) {
+  const { user } = useAuth();
+  const [fileName, setFileName] = useState("");
+  const [selectedPrinterId, setSelectedPrinterId] = useState("");
+
+  const activePrinters = printers.filter(p => p.status === 'online');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!fileName.trim()) {
+      toast.error("Fayl nomini kiriting");
+      return;
+    }
+    if (!selectedPrinterId) {
+      toast.error("Printerni tanlang");
+      return;
+    }
+    onSubmit({
+      fileName,
+      userName: user?.name || user?.email || "Operator",
+      printerId: parseInt(selectedPrinterId)
+    });
+    setFileName("");
+    setSelectedPrinterId("");
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+          />
+          {/* Modal Content */}
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            transition={{ type: "spring", duration: 0.5 }}
+            className="relative w-full max-w-md overflow-hidden rounded-xl border border-border/60 bg-card p-6 shadow-2xl glass-card z-10"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                <Printer className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Yangi chop etish vazifasi</h3>
+                <p className="text-xs text-muted-foreground">Faylni printer navbatiga yuborish</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">Fayl Nomi</label>
+                <Input 
+                  placeholder="Masalan: shartnoma_v2.pdf" 
+                  value={fileName}
+                  onChange={(e) => setFileName(e.target.value)}
+                  className="font-mono text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">Foydalanuvchi</label>
+                <Input 
+                  value={user?.name || user?.email || "Operator"} 
+                  disabled 
+                  className="bg-muted/50 font-mono text-sm opacity-80"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">Printerni Tanlang</label>
+                <select 
+                  value={selectedPrinterId}
+                  onChange={(e) => setSelectedPrinterId(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="" className="bg-card text-foreground">-- Tanlang --</option>
+                  {activePrinters.map(printer => (
+                    <option key={printer.id} value={printer.id} className="bg-card text-foreground">
+                      {printer.hostname} ({printer.modelName})
+                    </option>
+                  ))}
+                  {activePrinters.length === 0 && (
+                    <option disabled className="bg-card text-muted-foreground">Hech qanday faol printer yo'q</option>
+                  )}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                  Bekor qilish
+                </Button>
+                <Button type="submit" size="sm" disabled={activePrinters.length === 0} className="bg-primary text-primary-foreground">
+                  Yuborish
+                </Button>
+              </div>
+            </form>
+          </motion.div>
         </div>
       )}
-    </motion.div>
+    </AnimatePresence>
   );
 }
 

@@ -128,12 +128,33 @@ export const apiClient = {
     headers: apiClient.getHeaders()
   }).then(handleResponse),
 
+  createPrintJob: (data) => fetch(`${BASE_URL}/print/jobs`, {
+    method: 'POST',
+    headers: apiClient.getHeaders(),
+    body: JSON.stringify(data)
+  }).then(handleResponse),
+
   cancelPrintJob: (id) => fetch(`${BASE_URL}/print/jobs/${id}/cancel`, {
     method: 'POST',
     headers: apiClient.getHeaders()
   }).then(handleResponse),
 
   retryPrintJob: (id) => fetch(`${BASE_URL}/print/jobs/${id}/retry`, {
+    method: 'POST',
+    headers: apiClient.getHeaders()
+  }).then(handleResponse),
+
+  refillPrinterToner: (id) => fetch(`${BASE_URL}/print/printers/${id}/refill`, {
+    method: 'POST',
+    headers: apiClient.getHeaders()
+  }).then(handleResponse),
+
+  togglePrinterStatus: (id) => fetch(`${BASE_URL}/print/printers/${id}/toggle-status`, {
+    method: 'POST',
+    headers: apiClient.getHeaders()
+  }).then(handleResponse),
+
+  fixPrinter: (id) => fetch(`${BASE_URL}/print/printers/${id}/fix`, {
     method: 'POST',
     headers: apiClient.getHeaders()
   }).then(handleResponse),
