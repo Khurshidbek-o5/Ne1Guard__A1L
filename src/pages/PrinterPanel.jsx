@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Printer, ScrollText, Search, 
   Trash2, RefreshCcw, Wifi,
   FileText, Settings, Activity,
-  Plus, Power, Wrench, BatteryCharging
+  Plus, Power, Wrench, BatteryCharging,
+  ArrowLeft, Check, Lock, Unlock, Users, UserPlus
 } from 'lucide-react';
 import { apiClient } from '@/api/apiClient';
 import { 
@@ -28,10 +29,12 @@ import { useTranslation } from "react-i18next";
  */
 export default function PrinterPanel() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedPrinterId, setSelectedPrinterId] = useState(null);
 
   // Fetch Printers & Queue
   const { data: printers = [], isInitialLoading: printersLoading } = useQuery({
@@ -105,6 +108,15 @@ export default function PrinterPanel() {
     onError: (err) => toast.error(err.message)
   });
 
+  const updatePermissionsMutation = useMutation({
+    mutationFn: ({ id, authorizedUsers }) => apiClient.updatePrinterPermissions(id, authorizedUsers),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['printers']);
+      toast.success("Ruxsatnomalar muvaffaqiyatli yangilandi");
+    },
+    onError: (err) => toast.error(err.message)
+  });
+
   // Filtering
   const filteredQueue = useMemo(() => {
     return queue.filter(job => {
@@ -115,8 +127,347 @@ export default function PrinterPanel() {
     });
   }, [queue, searchTerm, filterStatus]);
 
-  // Full-page spinnerni olib tashladik. 
-  // Komponent doim render qilinadi, ma'lumot kelguncha shunchaki bo'sh array bo'ladi.
+  const selectedPrinter = useMemo(() => {
+    return printers.find(p => p.id === selectedPrinterId);
+  }, [printers, selectedPrinterId]);
+
+  const isRestricted = selectedPrinter?.authorizedUsers && selectedPrinter?.authorizedUsers !== 'all';
+  
+  const authorizedList = useMemo(() => {
+    if (!selectedPrinter || !isRestricted) return [];
+    return selectedPrinter.authorizedUsers.split(',').map(e => e.trim()).filter(Boolean);
+  }, [selectedPrinter, isRestricted]);
+
+  const handleAddUser = (email) => {
+    if (!email.trim() || !email.includes('@')) {
+      toast.error("Yaroqli email kiriting");
+      return;
+    }
+    const emailLower = email.trim().toLowerCase();
+    if (authorizedList.map(e => e.toLowerCase()).includes(emailLower)) {
+      toast.error("Bu email allaqachon qo'shilgan");
+      return;
+    }
+    const newList = [...authorizedList, emailLower].join(',');
+    updatePermissionsMutation.mutate({ id: selectedPrinter.id, authorizedUsers: newList });
+  };
+  
+  const handleRemoveUser = (email) => {
+    const newList = authorizedList
+      .filter(e => e.toLowerCase() !== email.toLowerCase())
+      .join(',');
+    updatePermissionsMutation.mutate({ id: selectedPrinter.id, authorizedUsers: newList || 'all' });
+  };
+
+  const handleToggleRestriction = (restricted) => {
+    const newValue = restricted ? (user?.email || 'admin@netguard.ai') : 'all';
+    updatePermissionsMutation.mutate({ id: selectedPrinter.id, authorizedUsers: newValue });
+  };
+
+  if (selectedPrinterId && selectedPrinter) {
+    return (
+      <div className="space-y-8 max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
+        {/* Back navigation */}
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setSelectedPrinterId(null)}
+            className="gap-1.5 h-8 font-semibold text-xs border border-border/50 bg-card/40"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Orqaga
+          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-sm">Printer Operator</span>
+            <span className="text-muted-foreground text-sm">/</span>
+            <span className="text-sm font-bold font-mono text-primary">{selectedPrinter.hostname}</span>
+          </div>
+        </div>
+
+        {/* Detailed Printer Summary Card */}
+        <div className="bg-card border border-border/60 rounded-xl overflow-hidden glass-card shadow-lg p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 relative">
+          <div className="flex items-center gap-4">
+            <div className={cn(
+              "h-16 w-16 rounded-xl flex items-center justify-center transition-colors border",
+              selectedPrinter.status !== 'online' ? "bg-muted text-muted-foreground border-border" : 
+              selectedPrinter.risk_level === 'warning' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
+              "bg-primary/10 text-primary border-primary/20 glow-green"
+            )}>
+              <Printer className="h-8 w-8" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-bold tracking-tight">{selectedPrinter.hostname}</h2>
+                <Badge variant="outline" className={cn(
+                  "text-[9px] font-mono font-bold tracking-wider border",
+                  selectedPrinter.status !== 'online' ? "bg-muted text-muted-foreground border-border" : 
+                  selectedPrinter.risk_level === 'warning' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
+                  "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                )}>
+                  {selectedPrinter.status === 'online' ? (selectedPrinter.risk_level === 'warning' ? "WARNING" : "READY") : "OFFLINE"}
+                </Badge>
+              </div>
+              <p className="text-sm font-mono text-muted-foreground uppercase">{selectedPrinter.modelName || 'Enterprise Jet'}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full lg:w-auto">
+            <div className="space-y-1">
+              <span className="text-[10px] text-muted-foreground uppercase font-mono">Tarmoq IP</span>
+              <div className="text-sm font-mono font-bold">{selectedPrinter.ip_address}</div>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] text-muted-foreground uppercase font-mono">Jami Chop etilgan</span>
+              <div className="text-sm font-mono font-bold">{selectedPrinter.pageCount?.toLocaleString()} sahifa</div>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] text-muted-foreground uppercase font-mono">Toner Level</span>
+              <div className={cn("text-sm font-mono font-bold", selectedPrinter.tonerLevel < 15 ? "text-destructive" : "text-foreground")}>
+                {selectedPrinter.tonerLevel}%
+              </div>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] text-muted-foreground uppercase font-mono">Navbatdagi vazifalar</span>
+              <div className="text-sm font-mono font-bold">{queue.filter(j => j.printerId === selectedPrinter.id && (j.status === 'PENDING' || j.status === 'PRINTING')).length} ta</div>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => toggleStatusMutation.mutate(selectedPrinter.id)}
+              className="gap-1 text-xs"
+            >
+              <Power className="h-3.5 w-3.5" />
+              {selectedPrinter.status === 'online' ? "O'chirish" : "Yoqish"}
+            </Button>
+            {selectedPrinter.status === 'online' && selectedPrinter.tonerLevel < 100 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refillTonerMutation.mutate(selectedPrinter.id)}
+                className="gap-1 text-xs text-primary border-primary/20 hover:bg-primary/10"
+              >
+                <BatteryCharging className="h-3.5 w-3.5" />
+                Toner Refill
+              </Button>
+            )}
+            {selectedPrinter.status === 'online' && selectedPrinter.risk_level === 'warning' && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => fixPrinterMutation.mutate(selectedPrinter.id)}
+                className="gap-1 text-xs text-amber-500 border-amber-500/20 bg-amber-500/10 hover:bg-amber-500/20"
+              >
+                <Wrench className="h-3.5 w-3.5" />
+                Tuzatish
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Detailed Columns Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Printer Print Queue - Left Column (Spans 2 cols) */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="flex items-center justify-between border-b border-border/60 pb-2">
+              <div className="flex items-center gap-2">
+                <ScrollText className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Chop etish tarixi va navbati</h3>
+              </div>
+              {selectedPrinter.status === 'online' && (
+                <Button 
+                  size="sm" 
+                  onClick={() => setIsCreateOpen(true)}
+                  className="h-8 gap-1 text-xs font-semibold px-3 bg-primary text-primary-foreground"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Yangi chop etish
+                </Button>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-border/60 bg-card overflow-hidden glass-card shadow-lg">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Fayl nomi</TableHead>
+                    <TableHead>Foydalanuvchi</TableHead>
+                    <TableHead>Yuborildi</TableHead>
+                    <TableHead>Holat</TableHead>
+                    <TableHead className="text-right">Amallar</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {queue.filter(j => j.printerId === selectedPrinter.id).map(job => (
+                    <TableRow key={job.id} className="table-row-hover group">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <FileText className="h-4 w-4 text-primary" />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{job.fileName}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">JOB #{job.id}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-6 w-6 border">
+                            <AvatarFallback className="text-[10px]">{job.userName.substring(0,2)}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs">{job.userName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(job.timestamp).toLocaleTimeString()}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={job.status} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button 
+                            variant="ghost" size="icon" className="h-7 w-7" 
+                            onClick={() => retryMutation.mutate(job.id)}
+                            disabled={job.status === 'PRINTING' || job.status === 'COMPLETED'}
+                          >
+                            <RefreshCcw className="h-3 w-3" />
+                          </Button>
+                          <Button 
+                            variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                            onClick={() => cancelMutation.mutate(job.id)}
+                            disabled={job.status === 'COMPLETED' || job.status === 'FAILED'}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {queue.filter(j => j.printerId === selectedPrinter.id).length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center text-muted-foreground italic text-xs font-mono">
+                        Hozircha hech qanday chop etish tarixi yo'q.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* Access Control - Right Column (Spans 1 col) */}
+          <div className="space-y-4">
+            <div className="border-b border-border/60 pb-2 flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Foydalanuvchilar ruxsati</h3>
+            </div>
+
+            <div className="bg-card border border-border/60 rounded-xl p-5 glass-card space-y-6">
+              {/* Access Control Type */}
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">Ruxsat Turi</span>
+                <div className="flex bg-muted/30 rounded-lg p-1 border border-border/40">
+                  <button 
+                    onClick={() => handleToggleRestriction(false)}
+                    className={cn(
+                      "flex-1 py-1.5 rounded-md text-xs font-medium font-mono uppercase transition-all flex items-center justify-center gap-1",
+                      !isRestricted ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Unlock className="h-3 w-3" /> Hamma
+                  </button>
+                  <button 
+                    onClick={() => handleToggleRestriction(true)}
+                    className={cn(
+                      "flex-1 py-1.5 rounded-md text-xs font-medium font-mono uppercase transition-all flex items-center justify-center gap-1",
+                      isRestricted ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Lock className="h-3 w-3" /> Cheklangan
+                  </button>
+                </div>
+              </div>
+
+              {isRestricted ? (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  {/* Add User Form */}
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">Foydalanuvchi qo'shish</span>
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const val = e.target.email.value;
+                        handleAddUser(val);
+                        e.target.email.value = "";
+                      }}
+                      className="flex gap-2"
+                    >
+                      <Input 
+                        name="email"
+                        type="email"
+                        placeholder="email@netguard.ai"
+                        className="h-8 text-xs font-mono"
+                      />
+                      <Button type="submit" size="sm" className="h-8 gap-1 px-3 text-xs bg-primary text-primary-foreground">
+                        <UserPlus className="h-3.5 w-3.5" /> Qo'shish
+                      </Button>
+                    </form>
+                  </div>
+
+                  {/* List of Authorized Users */}
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">Ruxsati Bor Foydalanuvchilar ({authorizedList.length})</span>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {authorizedList.map(email => (
+                        <div key={email} className="flex items-center justify-between p-2 rounded-lg bg-muted/20 border border-border/40 hover:bg-muted/40 transition-colors">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Avatar className="h-6 w-6 border">
+                              <AvatarFallback className="text-[10px]">{email.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs font-mono truncate">{email}</span>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => handleRemoveUser(email)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                      {authorizedList.length === 0 && (
+                        <div className="text-center py-4 text-xs text-muted-foreground italic font-mono">
+                          Hech qanday foydalanuvchiga ruxsat berilmagan.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-emerald-500 text-center space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <Check className="h-5 w-5 mx-auto animate-bounce" />
+                  <p className="text-xs font-bold font-mono">ERKIN FOYDALANISH REJIMI</p>
+                  <p className="text-[10px] text-muted-foreground">Tizimga kirgan barcha tasdiqlangan foydalanuvchilar ushbu printerda chop eta oladilar.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <CreateJobDialog 
+          isOpen={isCreateOpen}
+          onClose={() => setIsCreateOpen(false)}
+          printers={printers}
+          onSubmit={(data) => createJobMutation.mutate(data)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-[1600px] mx-auto">
@@ -156,13 +507,21 @@ export default function PrinterPanel() {
           [1,2,3].map(i => <div key={i} className="h-48 rounded-xl border border-border/40 bg-card/20 animate-pulse" />)
         ) : (
           printers.map((printer) => (
-            <PrinterCard 
-              key={printer.id} 
-              printer={printer} 
-              onRefill={(id) => refillTonerMutation.mutate(id)}
-              onToggle={(id) => toggleStatusMutation.mutate(id)}
-              onFix={(id) => fixPrinterMutation.mutate(id)}
-            />
+            <div 
+              key={printer.id}
+              onClick={(e) => {
+                if (e.target.closest('button')) return;
+                setSelectedPrinterId(printer.id);
+              }}
+              className="cursor-pointer"
+            >
+              <PrinterCard 
+                printer={printer} 
+                onRefill={(id) => refillTonerMutation.mutate(id)}
+                onToggle={(id) => toggleStatusMutation.mutate(id)}
+                onFix={(id) => fixPrinterMutation.mutate(id)}
+              />
+            </div>
           ))
         )}
       </div>
@@ -426,10 +785,20 @@ function PrinterCard({ printer, onRefill, onToggle, onFix }) {
   );
 }
 
-function CreateJobDialog({ isOpen, onClose, printers, onSubmit }) {
+function CreateJobDialog({ isOpen, onClose, printers, onSubmit, preselectedPrinterId }) {
   const { user } = useAuth();
   const [fileName, setFileName] = useState("");
   const [selectedPrinterId, setSelectedPrinterId] = useState("");
+
+  useEffect(() => {
+    if (isOpen) {
+      if (preselectedPrinterId) {
+        setSelectedPrinterId(preselectedPrinterId.toString());
+      } else {
+        setSelectedPrinterId("");
+      }
+    }
+  }, [preselectedPrinterId, isOpen]);
 
   const activePrinters = printers.filter(p => p.status === 'online');
 
@@ -507,7 +876,8 @@ function CreateJobDialog({ isOpen, onClose, printers, onSubmit }) {
                 <select 
                   value={selectedPrinterId}
                   onChange={(e) => setSelectedPrinterId(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  disabled={!!preselectedPrinterId}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-70"
                 >
                   <option value="" className="bg-card text-foreground">-- Tanlang --</option>
                   {activePrinters.map(printer => (

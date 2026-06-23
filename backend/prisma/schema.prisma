@@ -35,6 +35,7 @@ model Device {
   updated_at   DateTime @updatedAt
   packets      Packet[]
   printJobs    PrintJob[]
+  authorizedUsers String? @default("all")
 }
 
 model PrintJob {

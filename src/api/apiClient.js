@@ -158,4 +158,10 @@ export const apiClient = {
     method: 'POST',
     headers: apiClient.getHeaders()
   }).then(handleResponse),
+
+  updatePrinterPermissions: (id, authorizedUsers) => fetch(`${BASE_URL}/print/printers/${id}/permissions`, {
+    method: 'POST',
+    headers: apiClient.getHeaders(),
+    body: JSON.stringify({ authorizedUsers })
+  }).then(handleResponse),
 };

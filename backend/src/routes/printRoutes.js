@@ -12,5 +12,6 @@ router.post('/jobs/:id/retry', protect, requireRole('developer', 'printer'), pri
 router.post('/printers/:id/refill', protect, requireRole('developer', 'printer'), printController.refillToner);
 router.post('/printers/:id/toggle-status', protect, requireRole('developer', 'printer'), printController.toggleStatus);
 router.post('/printers/:id/fix', protect, requireRole('developer', 'printer'), printController.fixPrinter);
+router.post('/printers/:id/permissions', protect, requireRole('developer', 'printer'), printController.updatePermissions);
 
 module.exports = router;
