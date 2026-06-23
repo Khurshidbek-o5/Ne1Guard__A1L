@@ -34,6 +34,7 @@ export default function PrinterPanel() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isAddPrinterOpen, setIsAddPrinterOpen] = useState(false);
   const [selectedPrinterId, setSelectedPrinterId] = useState(null);
 
   // Fetch Printers & Queue
@@ -113,6 +114,16 @@ export default function PrinterPanel() {
     onSuccess: () => {
       queryClient.invalidateQueries(['printers']);
       toast.success("Ruxsatnomalar muvaffaqiyatli yangilandi");
+    },
+    onError: (err) => toast.error(err.message)
+  });
+
+  const createPrinterMutation = useMutation({
+    mutationFn: apiClient.createPrinter,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['printers']);
+      toast.success("Yangi printer muvaffaqiyatli qo'shildi");
+      setIsAddPrinterOpen(false);
     },
     onError: (err) => toast.error(err.message)
   });
@@ -484,6 +495,14 @@ export default function PrinterPanel() {
         </div>
         <div className="flex items-center gap-3">
           <Button 
+            onClick={() => setIsAddPrinterOpen(true)}
+            variant="outline"
+            className="h-9 gap-1.5 text-xs font-semibold px-4 border-primary/20 text-primary hover:bg-primary/10 hover:scale-[1.02] active:scale-[0.98] transition-all"
+          >
+            <Plus className="h-4 w-4" />
+            Printer qo'shish
+          </Button>
+          <Button 
             onClick={() => setIsCreateOpen(true)}
             className="h-9 gap-1.5 text-xs font-semibold px-4 bg-primary text-primary-foreground hover:bg-primary/95 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
           >
@@ -648,6 +667,11 @@ export default function PrinterPanel() {
         onClose={() => setIsCreateOpen(false)}
         printers={printers}
         onSubmit={(data) => createJobMutation.mutate(data)}
+      />
+      <AddPrinterDialog
+        isOpen={isAddPrinterOpen}
+        onClose={() => setIsAddPrinterOpen(false)}
+        onSubmit={(data) => createPrinterMutation.mutate(data)}
       />
     </div>
   );
@@ -919,5 +943,133 @@ function StatusBadge({ status }) {
     <Badge variant="outline" className={cn("text-[9px] font-mono font-bold tracking-wider", styles[status])}>
       {status}
     </Badge>
+  );
+}
+
+function AddPrinterDialog({ isOpen, onClose, onSubmit }) {
+  const [hostname, setHostname] = useState("");
+  const [modelName, setModelName] = useState("");
+  const [ipAddress, setIpAddress] = useState("");
+  const [macAddress, setMacAddress] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!hostname.trim()) {
+      toast.error("Printer nomini (hostname) kiriting");
+      return;
+    }
+    if (!modelName.trim()) {
+      toast.error("Printer modelini kiriting");
+      return;
+    }
+    if (!ipAddress.trim()) {
+      toast.error("IP manzilni kiriting");
+      return;
+    }
+    // Simple IP validation
+    const ipPattern = /^([0-9]{1,3}\.){3}[0-9]{1,3}$/;
+    if (!ipPattern.test(ipAddress.trim())) {
+      toast.error("IP manzil formati noto'g'ri (masalan: 192.168.1.100)");
+      return;
+    }
+
+    onSubmit({
+      hostname: hostname.trim(),
+      modelName: modelName.trim(),
+      ip_address: ipAddress.trim(),
+      mac_address: macAddress.trim() || null
+    });
+
+    setHostname("");
+    setModelName("");
+    setIpAddress("");
+    setMacAddress("");
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+          />
+          {/* Modal Content */}
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            transition={{ type: "spring", duration: 0.5 }}
+            className="relative w-full max-w-md overflow-hidden rounded-xl border border-border/60 bg-card p-6 shadow-2xl glass-card z-10"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                <Plus className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Yangi Printer qo'shish</h3>
+                <p className="text-xs text-muted-foreground">Tarmoqdagi yangi printerni ro'yxatdan o'tkazish</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">Printer Nomi (Hostname)</label>
+                <Input 
+                  placeholder="Masalan: HP-OFFICE-JET" 
+                  value={hostname}
+                  onChange={(e) => setHostname(e.target.value)}
+                  className="font-mono text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">Model Nomi</label>
+                <Input 
+                  placeholder="Masalan: HP LaserJet Pro M404n" 
+                  value={modelName}
+                  onChange={(e) => setModelName(e.target.value)}
+                  className="font-mono text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">IP Manzil</label>
+                  <Input 
+                    placeholder="192.168.1.150" 
+                    value={ipAddress}
+                    onChange={(e) => setIpAddress(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">MAC Manzil</label>
+                  <Input 
+                    placeholder="00:1A:2B:3C:4D:5E" 
+                    value={macAddress}
+                    onChange={(e) => setMacAddress(e.target.value)}
+                    className="font-mono text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                  Bekor qilish
+                </Button>
+                <Button type="submit" size="sm" className="bg-primary text-primary-foreground">
+                  Qo'shish
+                </Button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }

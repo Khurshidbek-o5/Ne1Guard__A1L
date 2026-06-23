@@ -229,3 +229,39 @@ exports.updatePermissions = async (req, res) => {
     res.status(500).json({ error: 'Failed to update printer permissions' });
   }
 };
+
+exports.createPrinter = async (req, res) => {
+  try {
+    const { hostname, modelName, ip_address, mac_address } = req.body;
+    if (!hostname || !modelName || !ip_address) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Check if IP is already in use
+    const existing = await prisma.device.findUnique({
+      where: { ip_address }
+    });
+    if (existing) {
+      return res.status(400).json({ error: 'Bu IP manzil allaqachon boshqa qurilmaga biriktirilgan' });
+    }
+
+    const printer = await prisma.device.create({
+      data: {
+        hostname,
+        modelName,
+        ip_address,
+        mac_address: mac_address || null,
+        device_type: 'printer',
+        status: 'online',
+        risk_level: 'safe',
+        tonerLevel: 100,
+        pageCount: 0,
+        authorizedUsers: 'all'
+      }
+    });
+    res.status(201).json(printer);
+  } catch (error) {
+    console.error('Error creating printer:', error);
+    res.status(500).json({ error: 'Failed to create printer' });
+  }
+};

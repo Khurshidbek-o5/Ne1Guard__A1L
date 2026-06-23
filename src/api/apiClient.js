@@ -164,4 +164,10 @@ export const apiClient = {
     headers: apiClient.getHeaders(),
     body: JSON.stringify({ authorizedUsers })
   }).then(handleResponse),
+
+  createPrinter: (data) => fetch(`${BASE_URL}/print/printers`, {
+    method: 'POST',
+    headers: apiClient.getHeaders(),
+    body: JSON.stringify(data)
+  }).then(handleResponse),
 };
