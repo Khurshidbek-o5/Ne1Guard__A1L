@@ -170,4 +170,83 @@ export const apiClient = {
     headers: apiClient.getHeaders(),
     body: JSON.stringify(data)
   }).then(handleResponse),
+
+  // ── Active Directory (AD) ──────────────────────────────────────────────────
+  // OUs
+  getADOUs: () => fetch(`${BASE_URL}/ad/ous`, {
+    headers: apiClient.getHeaders()
+  }).then(handleResponse),
+
+  createADOU: (data) => fetch(`${BASE_URL}/ad/ous`, {
+    method: 'POST',
+    headers: apiClient.getHeaders(),
+    body: JSON.stringify(data),
+  }).then(handleResponse),
+
+  deleteADOU: (name) => fetch(`${BASE_URL}/ad/ous/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+    headers: apiClient.getHeaders(),
+  }).then(handleResponse),
+
+  // OU Users & Computers
+  getOUUsers: (ouName) => fetch(`${BASE_URL}/ad/ous/${encodeURIComponent(ouName)}/users`, {
+    headers: apiClient.getHeaders()
+  }).then(handleResponse),
+
+  getOUComputers: (ouName) => fetch(`${BASE_URL}/ad/ous/${encodeURIComponent(ouName)}/computers`, {
+    headers: apiClient.getHeaders()
+  }).then(handleResponse),
+
+  // AD User CRUD
+  createADUser: (data) => fetch(`${BASE_URL}/ad/users`, {
+    method: 'POST',
+    headers: apiClient.getHeaders(),
+    body: JSON.stringify(data),
+  }).then(handleResponse),
+
+  updateADUser: (id, data) => fetch(`${BASE_URL}/ad/users/${id}`, {
+    method: 'PATCH',
+    headers: apiClient.getHeaders(),
+    body: JSON.stringify(data),
+  }).then(handleResponse),
+
+  resetADPassword: (id, newPassword) => fetch(`${BASE_URL}/ad/users/${id}/password`, {
+    method: 'PATCH',
+    headers: apiClient.getHeaders(),
+    body: JSON.stringify({ newPassword }),
+  }).then(handleResponse),
+
+  toggleADLock: (id) => fetch(`${BASE_URL}/ad/users/${id}/lock`, {
+    method: 'PATCH',
+    headers: apiClient.getHeaders(),
+  }).then(handleResponse),
+
+  moveADUser: (id, targetOUName) => fetch(`${BASE_URL}/ad/users/${id}/move`, {
+    method: 'PATCH',
+    headers: apiClient.getHeaders(),
+    body: JSON.stringify({ targetOUName }),
+  }).then(handleResponse),
+
+  deleteADUser: (id) => fetch(`${BASE_URL}/ad/users/${id}`, {
+    method: 'DELETE',
+    headers: apiClient.getHeaders(),
+  }).then(handleResponse),
+
+  // Computers
+  addADComputer: (data) => fetch(`${BASE_URL}/ad/computers`, {
+    method: 'POST',
+    headers: apiClient.getHeaders(),
+    body: JSON.stringify(data),
+  }).then(handleResponse),
+
+  deleteADComputer: (id) => fetch(`${BASE_URL}/ad/computers/${id}`, {
+    method: 'DELETE',
+    headers: apiClient.getHeaders(),
+  }).then(handleResponse),
+
+  // Seed
+  seedAD: () => fetch(`${BASE_URL}/ad/seed`, {
+    method: 'POST',
+    headers: apiClient.getHeaders(),
+  }).then(handleResponse),
 };

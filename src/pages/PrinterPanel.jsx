@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Printer, ScrollText, Search, 
   Trash2, RefreshCcw, Wifi,
-  FileText, Settings, Activity,
+  FileText, Activity,
   Plus, Power, Wrench, BatteryCharging,
   ArrowLeft, Check, Lock, Unlock, Users, UserPlus
 } from 'lucide-react';

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -84,6 +84,53 @@ model Alert {
 model SystemSetting {
   id         Int      @id @default(autoincrement())
   key        String   @unique
-  value      String   @db.Text
+  value      String
   updated_at DateTime @updatedAt
+}
+
+// ═══════════════════════════════════════════
+//  Active Directory Domain Models
+//  uztmk.local — Офис Управления
+// ═══════════════════════════════════════════
+
+model OrgUnit {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique   // "Geologiya"
+  displayName String                 // "🏭 Geologiya"
+  parent      String?                // "Офис Управления"
+  description String?
+  icon        String?                // emoji icon
+  sortOrder   Int          @default(0)
+  created_at  DateTime     @default(now())
+  ouUsers     OUUser[]
+  ouComputers OUComputer[]
+}
+
+model OUUser {
+  id           Int      @id @default(autoincrement())
+  adLogin      String   @unique        // "sobir.rahimov"
+  fullName     String                  // "Собир Рахимов"
+  position     String?                 // "Geolog"
+  email        String?
+  phone        String?
+  isLocked     Boolean  @default(false)
+  isEnabled    Boolean  @default(true)
+  passwordHash String?                 // for local simulation fallback
+  lastLogin    DateTime?
+  ouId         Int
+  ou           OrgUnit  @relation(fields: [ouId], references: [id], onDelete: Cascade)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+}
+
+model OUComputer {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique            // "GEO-PC-01"
+  os        String   @default("Windows 10")
+  ouId      Int
+  ou        OrgUnit  @relation(fields: [ouId], references: [id], onDelete: Cascade)
+  status    String   @default("online") // online | offline | unknown
+  ipAddress String?
+  lastSeen  DateTime?
+  created_at DateTime @default(now())
 }

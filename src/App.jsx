@@ -15,6 +15,7 @@ import SettingsPage from './pages/SettingsPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PrinterPanel from './pages/PrinterPanel';
+import ActiveDirectoryPanel from './pages/ActiveDirectoryPanel';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const AuthenticatedApp = () => {
@@ -42,9 +43,16 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // Render the main app
   return (
     <Routes>
+      {/* Standalone full-screen pages (no AppLayout sidebar/header) */}
+      <Route path="/ad-admin" element={
+        <ProtectedRoute allowedRoles={['developer']}>
+          <ActiveDirectoryPanel />
+        </ProtectedRoute>
+      } />
+
+      {/* Main app with sidebar/header layout */}
       <Route element={<AppLayout />}>
         {/* Dashboard - All approved roles + guest */}
         <Route path="/" element={

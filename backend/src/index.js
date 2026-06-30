@@ -21,7 +21,8 @@ const alertRoutes = require('./routes/alertRoutes');
 const userRoutes = require('./routes/userRoutes');
 const statsRoutes = require('./routes/statsRoutes');
 const settingRoutes = require('./routes/settingRoutes');
-const printRoutes = require('./routes/printRoutes');
+const printRoutes   = require('./routes/printRoutes');
+const adRoutes      = require('./routes/adRoutes');
 
 // Service Imports
 const { startMonitoring } = require('./services/deviceMonitor');
@@ -71,7 +72,8 @@ app.use(`${apiPrefix}/alerts`, alertRoutes);
 app.use(`${apiPrefix}/users`, userRoutes);
 app.use(`${apiPrefix}/stats`, statsRoutes);
 app.use(`${apiPrefix}/settings`, settingRoutes);
-app.use(`${apiPrefix}/print`, printRoutes);
+app.use(`${apiPrefix}/print`,    printRoutes);
+app.use(`${apiPrefix}/ad`,       adRoutes);
 
 // Server Startup
 const server = app.listen(PORT, () => {

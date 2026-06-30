@@ -17,6 +17,7 @@ const navItems = [
   { path: "/alerts",      label: "common.alerts",          icon: AlertTriangle,   tag: null, roles: ['developer', 'support', 'security', 'auditor'] },
   { path: "/devices",     label: "common.devices",         icon: Server,          tag: null, roles: ['developer', 'auditor'] },
   { path: "/printer",     label: "common.printer",         icon: LayoutDashboard, tag: null, roles: ['developer', 'printer'] },
+  { path: "/ad-admin",    label: "common.ad_admin",        icon: Shield,          tag: "CORP", roles: ['developer'] },
   { path: "/map",         label: "common.map",             icon: Network,         tag: null, roles: ['developer', 'support'] },
   { path: "/ai-analysis", label: "common.ai_analysis",     icon: Brain,           tag: null, roles: ['developer', 'support', 'security'] },
 ];
@@ -46,9 +47,12 @@ function StatusDot({ color = "bg-primary" }) {
 }
 
 /* Top strip bar */
-function TopStrip() {
+function TopStrip({ isCollapsed }) {
   return (
-    <div className="h-8 topbar-gradient flex items-center justify-between px-4 shrink-0 hidden md:flex">
+    <div className={cn(
+      "h-8 topbar-gradient flex items-center justify-between px-4 shrink-0 hidden md:flex transition-all duration-300 ease-in-out",
+      isCollapsed ? "pl-[84px]" : "pl-[236px]"
+    )}>
       <div className="flex items-center gap-4 text-[10px] font-mono text-muted-foreground/70">
         <div className="flex items-center gap-1.5">
           <StatusDot color="bg-primary" />
@@ -75,17 +79,28 @@ function TopStrip() {
 
 export default function AppLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem("sidebar-collapsed") === "true";
+  });
   const location = useLocation();
   const { logout, user } = useAuth();
   const { t } = useTranslation();
 
   const closeSidebar = () => setIsSidebarOpen(false);
 
+  const toggleSidebarCollapse = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem("sidebar-collapsed", String(next));
+      return next;
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
 
       {/* ── Top status strip (desktop) ── */}
-      <TopStrip />
+      <TopStrip isCollapsed={isCollapsed} />
 
       <div className="flex flex-1 min-h-0">
 
@@ -119,28 +134,72 @@ export default function AppLayout() {
         )}
 
         {/* ════════════════════════════
-            SIDEBAR
+            SIDEBAR (COLLAPSIBLE FOR DESKTOP)
         ════════════════════════════ */}
+        {/* Reserved space placeholder on desktop to avoid layout shifting */}
+        <div className={cn(
+          "hidden md:block transition-all duration-300 ease-in-out shrink-0",
+          isCollapsed ? "w-[68px]" : "w-[220px]"
+        )} />
+
         <aside className={cn(
-          "fixed md:sticky top-0 left-0 h-screen w-[220px] flex flex-col z-50",
-          "transition-transform duration-300 ease-in-out",
+          "fixed top-0 left-0 h-screen flex flex-col z-50",
+          "transition-all duration-300 ease-in-out group overflow-x-hidden",
           "border-r border-border/60",
-          /* Deep sidebar bg with subtle green gradient at top */
           "bg-[hsl(222,28%,4%)]",
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+          // Mobile open state:
+          isSidebarOpen ? "translate-x-0 w-[220px]" : "-translate-x-full md:translate-x-0",
+          // Desktop collapse state (hover peeking handles width):
+          isCollapsed ? "md:w-[68px] md:hover:w-[220px] md:shadow-[5px_0_25px_rgba(0,0,0,0.4)]" : "md:w-[220px]"
         )}
           style={{
             backgroundImage: "linear-gradient(180deg, rgba(34,197,94,0.04) 0%, transparent 30%)",
           }}
         >
-          {/* ── Logo ── */}
-          <div className="px-5 py-5 border-b border-border/50 hidden md:flex items-center gap-3">
-            <div className="relative">
-              <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center glow-green">
-                <Shield className="h-5 w-5 text-primary" />
+          {/* ── Logo & Toggle Button ── */}
+          <div className={cn(
+            "py-5 border-b border-border/50 hidden md:flex items-center shrink-0 h-[77px] overflow-hidden transition-all duration-300 ease-in-out",
+            isCollapsed 
+              ? "justify-center px-0 gap-0 group-hover:justify-between group-hover:px-4 group-hover:gap-2" 
+              : "justify-between px-4 gap-2"
+          )}>
+            <div className={cn(
+              "flex items-center overflow-hidden transition-all duration-300",
+              isCollapsed ? "gap-0 group-hover:gap-3" : "gap-3"
+            )}>
+              <div className="relative shrink-0">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center glow-green">
+                  <Shield className="h-5 w-5 text-primary" />
+                </div>
+                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-primary rounded-full border border-background animate-pulse" />
               </div>
-              {/* Pulsing corner dot */}
-              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-primary rounded-full border border-background animate-pulse" />
+              
+              <div className={cn(
+                "flex flex-col origin-left transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap",
+                isCollapsed ? "md:max-w-0 md:opacity-0 md:group-hover:max-w-[150px] md:group-hover:opacity-100" : "max-w-[150px] opacity-100"
+              )}>
+                <span className="text-base font-bold tracking-tight block leading-none">NetGuard</span>
+                <span className="text-[10px] text-primary font-mono tracking-[0.2em] font-semibold">AI SYSTEM</span>
+              </div>
+            </div>
+
+            {/* In-sidebar Collapse Toggle Arrow */}
+            <button
+              onClick={toggleSidebarCollapse}
+              className={cn(
+                "p-1 rounded bg-secondary/35 text-muted-foreground hover:text-foreground transition-all duration-300 ease-in-out shrink-0 overflow-hidden",
+                isCollapsed ? "md:max-w-0 md:opacity-0 md:p-0 md:group-hover:max-w-[24px] md:group-hover:opacity-100 md:group-hover:p-1" : "max-w-[24px] opacity-100"
+              )}
+              title={isCollapsed ? "Yozish" : "Yig'ish"}
+            >
+              <ChevronRight className={cn("h-4 w-4 transition-transform duration-300", !isCollapsed && "rotate-180")} />
+            </button>
+          </div>
+
+          {/* Logo container for mobile */}
+          <div className="px-5 py-5 border-b border-border/50 md:hidden flex items-center gap-3 shrink-0">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center glow-green">
+              <Shield className="h-5 w-5 text-primary" />
             </div>
             <div>
               <span className="text-base font-bold tracking-tight block leading-none">NetGuard</span>
@@ -149,12 +208,15 @@ export default function AppLayout() {
           </div>
 
           {/* ── Section label ── */}
-          <div className="px-5 pt-5 pb-2">
+          <div className={cn(
+            "px-4 pt-5 pb-2 transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap shrink-0",
+            isCollapsed ? "md:max-h-0 md:opacity-0 md:py-0 md:group-hover:max-h-[30px] md:group-hover:opacity-100 md:group-hover:py-2" : "max-h-[30px] opacity-100"
+          )}>
             <p className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-[0.2em]">{t('common.navigation') || 'Navigation'}</p>
           </div>
 
           {/* ── Nav links ── */}
-          <nav className="overflow-y-auto px-3 space-y-0.5 mb-2">
+          <nav className="overflow-y-auto px-3 space-y-1 mb-2 flex-1 scrollbar-thin">
             {navItems.filter(item => !item.roles || item.roles.includes(user?.role || 'user')).map(item => {
               const isActive = location.pathname === item.path ||
                 (item.path !== "/" && location.pathname.startsWith(item.path));
@@ -163,8 +225,9 @@ export default function AppLayout() {
                   key={item.path}
                   to={item.path}
                   onClick={closeSidebar}
+                  title={isCollapsed ? t(item.label) : undefined}
                   className={cn(
-                    "sidebar-nav-link",
+                    "sidebar-nav-link h-10 px-3 flex items-center gap-3 rounded-lg border border-transparent transition-all",
                     isActive && "sidebar-nav-link-active"
                   )}
                 >
@@ -172,11 +235,17 @@ export default function AppLayout() {
                     "h-4 w-4 shrink-0 transition-colors",
                     isActive ? "text-primary" : "text-muted-foreground/60 group-hover:text-foreground"
                   )} />
-                  <span className="flex-1 truncate">{t(item.label)}</span>
+                  <span className={cn(
+                    "truncate flex-1 origin-left transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden",
+                    isCollapsed ? "md:max-w-0 md:opacity-0 md:group-hover:max-w-[150px] md:group-hover:opacity-100 md:group-hover:ml-1" : "max-w-[150px] opacity-100 ml-1"
+                  )}>
+                    {t(item.label)}
+                  </span>
 
                   {item.tag && (
                     <span className={cn(
-                      "text-[9px] font-mono font-bold px-1.5 py-0.5 rounded tracking-wider",
+                      "text-[9px] font-mono font-bold px-1.5 py-0.5 rounded tracking-wider transition-all duration-300 ease-in-out origin-right shrink-0 overflow-hidden whitespace-nowrap",
+                      isCollapsed ? "md:max-w-0 md:opacity-0 md:px-0 md:border-0 md:group-hover:max-w-[40px] md:group-hover:opacity-100 md:group-hover:px-1.5 md:group-hover:border" : "max-w-[40px] opacity-100",
                       item.tag === "LIVE"
                         ? "bg-primary/15 text-primary border border-primary/20"
                         : item.tag === "AI"
@@ -188,7 +257,10 @@ export default function AppLayout() {
                   )}
 
                   {isActive && (
-                    <ChevronRight className="h-3 w-3 text-primary/60 shrink-0" />
+                    <ChevronRight className={cn(
+                      "h-3.5 w-3.5 text-primary/60 shrink-0 transition-all duration-300 ease-in-out",
+                      isCollapsed ? "md:opacity-0 md:scale-0 md:group-hover:opacity-100 md:group-hover:scale-100" : "opacity-100 scale-100"
+                    )} />
                   )}
                 </Link>
               );
@@ -196,18 +268,22 @@ export default function AppLayout() {
           </nav>
 
           {/* ── Divider ── */}
-          <div className="mx-3 my-2 border-t border-border/40" />
-          <div className="px-5 pb-1">
+          <div className="mx-3 my-2 border-t border-border/40 shrink-0" />
+          <div className={cn(
+            "px-4 pb-1 transition-all duration-300 ease-in-out overflow-hidden whitespace-nowrap shrink-0",
+            isCollapsed ? "md:max-h-0 md:opacity-0 md:py-0 md:group-hover:max-h-[30px] md:group-hover:opacity-100 md:group-hover:py-1" : "max-h-[30px] opacity-100"
+          )}>
             <p className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-[0.2em]">{t('common.system') || 'System'}</p>
           </div>
 
           {/* ── Settings & Logout ── */}
-          <div className="px-3 pb-4 space-y-0.5">
+          <div className="px-3 pb-4 space-y-1 shrink-0">
             <Link
               to="/settings"
               onClick={closeSidebar}
+              title={isCollapsed ? t('common.settings') : undefined}
               className={cn(
-                "sidebar-nav-link",
+                "sidebar-nav-link h-10 px-3 flex items-center gap-3 rounded-lg border border-transparent transition-all",
                 location.pathname === "/settings" && "sidebar-nav-link-active"
               )}
             >
@@ -215,20 +291,29 @@ export default function AppLayout() {
                 "h-4 w-4 shrink-0",
                 location.pathname === "/settings" ? "text-primary" : "text-muted-foreground/60"
               )} />
-              <span className="flex-1">{t('common.settings')}</span>
-              {location.pathname === "/settings" && <ChevronRight className="h-3 w-3 text-primary/60" />}
+              <span className={cn(
+                "truncate flex-1 origin-left transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden",
+                isCollapsed ? "md:max-w-0 md:opacity-0 md:group-hover:max-w-[150px] md:group-hover:opacity-100 md:group-hover:ml-1" : "max-w-[150px] opacity-100 ml-1"
+              )}>
+                {t('common.settings')}
+              </span>
+              {location.pathname === "/settings" && <ChevronRight className={cn("h-3.5 w-3.5 text-primary/60 shrink-0 transition-all duration-300 ease-in-out", isCollapsed ? "md:opacity-0 md:scale-0 md:group-hover:opacity-100 md:group-hover:scale-100" : "opacity-100 scale-100")} />}
             </Link>
 
             <button
               onClick={logout}
-              className="sidebar-nav-link w-full text-left hover:!text-destructive hover:!bg-destructive/8 hover:!border-destructive/20"
+              title={isCollapsed ? t('common.logout') : undefined}
+              className="sidebar-nav-link h-10 px-3 flex items-center gap-3 rounded-lg border border-transparent transition-all w-full text-left hover:!text-destructive hover:!bg-destructive/8 hover:!border-destructive/20"
             >
               <LogOut className="h-4 w-4 shrink-0 text-muted-foreground/60" />
-              <span className="flex-1">{t('common.logout')}</span>
+              <span className={cn(
+                "truncate flex-1 origin-left transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden",
+                isCollapsed ? "md:max-w-0 md:opacity-0 md:group-hover:max-w-[150px] md:group-hover:opacity-100 md:group-hover:ml-1" : "max-w-[150px] opacity-100 ml-1"
+              )}>
+                {t('common.logout')}
+              </span>
             </button>
           </div>
-
-          <div className="flex-1" />
 
         </aside>
 
@@ -243,12 +328,25 @@ export default function AppLayout() {
             style={{ background: "radial-gradient(ellipse at top right, rgba(56,189,248,0.07) 0%, transparent 70%)" }}
           />
           {/* Corner glow — bottom left */}
-          <div className="pointer-events-none fixed bottom-0 left-[220px] w-[400px] h-[300px] opacity-30"
+          <div className={cn(
+            "pointer-events-none fixed bottom-0 w-[400px] h-[300px] opacity-30 transition-all duration-300 ease-in-out",
+            isCollapsed ? "left-[68px]" : "left-[220px]"
+          )}
             style={{ background: "radial-gradient(ellipse at bottom left, rgba(34,197,94,0.06) 0%, transparent 70%)" }}
           />
 
           {/* ── Page header bar ── */}
           <div className="sticky top-0 z-20 px-6 py-3 border-b border-border/50 bg-background/70 backdrop-blur-md hidden md:flex items-center gap-3">
+            
+            {/* Desktop Sidebar Toggle Hamburger Button */}
+            <button
+              onClick={toggleSidebarCollapse}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors mr-1"
+              title={isCollapsed ? "Panelni yozish" : "Panelni yig'ish"}
+            >
+              <Menu className="h-4.5 w-4.5" />
+            </button>
+
             {/* Breadcrumb */}
             <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
               <Shield className="h-3.5 w-3.5 text-primary/60" />

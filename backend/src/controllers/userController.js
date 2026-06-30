@@ -34,6 +34,10 @@ exports.updateUser = async (req, res) => {
     if (avatarUrl !== undefined) dataToUpdate.avatarUrl = avatarUrl;
     if (role) dataToUpdate.role = role;
     if (roleApproved !== undefined) dataToUpdate.roleApproved = roleApproved;
+    if (req.body.password) {
+      const bcrypt = require('bcryptjs');
+      dataToUpdate.password = await bcrypt.hash(req.body.password, 10);
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(id) },
